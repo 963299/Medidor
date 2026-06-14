@@ -1,1 +1,690 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Medidor</title>
+<style>
+:root{--bg:#0d0d0f;--surface:#16161a;--border:#2a2a32;--accent:#c8f135;--text:#f0f0f0;--muted:#666;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:monospace,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;max-width:480px;margin:0 auto}
+h1{font-size:1.4rem;font-weight:800;margin-bottom:4px}
+h1 span{color:var(--accent)}
+.sub{font-size:.7rem;color:var(--muted);margin-bottom:18px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.tab{flex:1;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:.7rem;color:var(--muted);cursor:pointer;text-align:center;text-transform:uppercase;letter-spacing:.5px}
+.tab.ativo{border-color:var(--accent);color:var(--accent)}
+.secao{display:none}.secao.ativo{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.clabel{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px}
+.canvas-wrap{position:relative;width:100%;border-radius:var(--r);overflow:hidden;background:#000;margin-bottom:12px;touch-action:none}
+canvas{display:block;width:100%;height:auto}
+input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:inherit;font-size:.85rem;padding:10px 12px;outline:none;width:100%}
+input:focus,select:focus{border-color:var(--accent)}
+.frow{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.frow label{font-size:.7rem;color:var(--muted);white-space:nowrap;min-width:90px}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--r);font-size:.9rem;font-weight:800;cursor:pointer;margin-bottom:8px}
+.btn-primary{background:var(--accent);color:#0d0d0f}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-wpp{background:#25d366;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-cam{background:#1a1a22;border:2px dashed var(--border);color:var(--muted);border-radius:var(--r);width:100%;padding:20px;font-size:.8rem;cursor:pointer;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.modo-ativo{font-size:.65rem;color:var(--accent);text-align:center;margin-bottom:8px;padding:6px;background:#c8f13511;border-radius:6px}
+.instrucao{background:#1a1a00;border:1px solid #444400;border-radius:8px;padding:10px 12px;font-size:.7rem;color:#aaa;margin-bottom:10px;line-height:1.6}
+.instrucao strong{color:var(--accent)}
+.instrucao ol{margin-left:14px;margin-top:4px}
+.resultado{background:#0d1f0d;border:1px solid #2d6e2d;border-radius:var(--r);padding:14px;margin-top:12px}
+.res-titulo{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:#4caf50;margin-bottom:10px}
+.res-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1a3a1a}
+.res-item:last-child{border-bottom:none}
+.res-key{font-size:.75rem;color:var(--muted)}
+.res-val{font-size:.9rem;color:var(--accent);font-weight:700}
+.preview-tecnica{width:100%;border-radius:var(--r);border:1px solid var(--border);margin:10px 0;display:block}
+.ia-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-top:12px;font-size:.8rem;line-height:1.6;color:var(--text);white-space:pre-wrap}
+.loading{text-align:center;padding:20px;color:var(--muted);font-size:.8rem}
+.dot-anim::after{content:'...';animation:dots 1.2s infinite}
+@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
+.badge{display:inline-block;background:#c8f13522;color:var(--accent);border:1px solid #c8f13544;border-radius:4px;font-size:.55rem;padding:2px 6px;margin-left:6px;vertical-align:middle}
+</style>
+</head>
+<body>
+
+<h1>&#128207; <span>MEDIDOR</span></h1>
+<p class="sub">Meça objetos por foto e gere imagem técnica</p>
+
+<div class="tabs">
+  <div class="tab ativo" onclick="setTab('ref')">Referência <span class="badge">Preciso</span></div>
+  <div class="tab" onclick="setTab('ia')">IA <span class="badge">Fácil</span></div>
+</div>
+
+<!-- ABA REFERENCIA -->
+<div class="secao ativo" id="tab-ref">
+  <div class="card">
+    <div class="clabel">1. Foto do objeto</div>
+    <label class="btn-cam" for="foto-ref">
+      <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Tirar foto ou escolher da galeria
+    </label>
+    <input type="file" id="foto-ref" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoRef(this)">
+  </div>
+
+  <div class="card" id="card-canvas" style="display:none">
+    <div class="clabel">2. Marque os pontos</div>
+    <div class="instrucao">
+      <strong>Como usar:</strong>
+      <ol>
+        <li>Toque no <strong>Ponto A</strong> (ex: borda esquerda)</li>
+        <li>Toque no <strong>Ponto B</strong> (ex: borda direita)</li>
+        <li>Informe a medida real abaixo</li>
+      </ol>
+    </div>
+    <div class="modo-ativo" id="modo-txt">Toque para marcar o Ponto A</div>
+    <div class="canvas-wrap">
+      <canvas id="canvas-ref" ontouchend="marcarPontoTouch(event)" onclick="marcarPonto(event)"></canvas>
+    </div>
+    <button class="btn btn-secondary" onclick="resetPontos()" style="margin-bottom:12px">Limpar pontos</button>
+
+    <div class="clabel">3. Medida de referência</div>
+    <div class="frow">
+      <label>Distância real:</label>
+      <input type="number" id="ref-medida" placeholder="Ex: 80" step="0.1" min="0.1">
+      <select id="ref-unit" style="max-width:80px">
+        <option value="cm">cm</option>
+        <option value="m">m</option>
+        <option value="mm">mm</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>O que medir:</label>
+      <select id="ref-modo">
+        <option value="retangulo">Largura e Altura</option>
+        <option value="linha">Comprimento</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>Nome objeto:</label>
+      <input type="text" id="ref-objeto" placeholder="Ex: Quadro, Cano, Porta...">
+    </div>
+    <button class="btn btn-primary" onclick="calcularMedida()">CALCULAR E GERAR IMAGEM</button>
+
+    <div id="resultado-ref" style="display:none">
+      <div class="resultado">
+        <div class="res-titulo">Resultado</div>
+        <div id="res-conteudo"></div>
+      </div>
+      <div class="clabel" style="margin-top:14px">Imagem técnica gerada</div>
+      <canvas id="canvas-tecnico" style="width:100%;border-radius:var(--r);border:1px solid var(--border);margin-bottom:10px;display:block"></canvas>
+      <button class="btn btn-wpp" onclick="compartilharWpp()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.047L.786 23.207a.5.5 0 0 0 .619.619l4.195-1.498A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 0 1-5.006-1.371l-.36-.214-3.724 1.329 1.353-3.648-.235-.374A9.818 9.818 0 0 1 12 2.182c5.426 0 9.818 4.392 9.818 9.818 0 5.427-4.392 9.818-9.818 9.818z"/></svg>
+        Enviar via WhatsApp
+      </button>
+      <button class="btn btn-secondary" onclick="salvarImagem()">Salvar imagem</button>
+    </div>
+  </div>
+</div>
+
+<!-- ABA IA -->
+<div class="secao" id="tab-ia">
+  <div class="card">
+    <div class="clabel">Foto do objeto</div>
+    <label class="btn-cam" for="foto-ia">
+      <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Tirar foto ou escolher da galeria
+    </label>
+    <input type="file" id="foto-ia" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoIA(this)">
+    <div id="preview-ia-wrap" style="display:none;margin-bottom:10px">
+      <img id="preview-ia" style="width:100%;border-radius:var(--r);border:1px solid var(--border)">
+    </div>
+  </div>
+
+  <div class="card" id="card-ia-config" style="display:none">
+    <div class="clabel">Contexto</div>
+    <div class="frow" style="margin-bottom:8px">
+      <label>Tipo:</label>
+      <select id="ia-tipo">
+        <option value="">Detectar automaticamente</option>
+        <option value="quadro">Quadro / Moldura</option>
+        <option value="movel">Móvel</option>
+        <option value="porta">Porta / Janela</option>
+        <option value="cano">Cano / Tubo</option>
+        <option value="eletrodomestico">Eletrodoméstico</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>Referência:</label>
+      <select id="ia-ref">
+        <option value="">Sem referência</option>
+        <option value="a4">Folha A4 na foto</option>
+        <option value="moeda">Moeda R$1 na foto</option>
+        <option value="garrafa">Garrafa 600ml na foto</option>
+        <option value="regua">Régua na foto</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="analisarComIA()">ANALISAR COM IA</button>
+  </div>
+
+  <div id="ia-loading" style="display:none" class="loading">
+    <div class="dot-anim">Analisando foto</div>
+    <div style="font-size:.65rem;color:var(--muted);margin-top:8px">A IA está examinando o objeto...</div>
+  </div>
+
+  <div id="ia-resultado" style="display:none">
+    <div class="resultado">
+      <div class="res-titulo">Análise da IA</div>
+      <div id="ia-texto" class="ia-result"></div>
+    </div>
+    <div id="ia-canvas-wrap" style="display:none;margin-top:12px">
+      <div class="clabel">Imagem técnica gerada</div>
+      <canvas id="canvas-ia-tecnico" style="width:100%;border-radius:var(--r);border:1px solid var(--border);margin-bottom:10px;display:block"></canvas>
+      <button class="btn btn-wpp" onclick="compartilharWppIA()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.047L.786 23.207a.5.5 0 0 0 .619.619l4.195-1.498A11.953 11.953 0 0 0 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.818a9.818 9.818 0 0 1-5.006-1.371l-.36-.214-3.724 1.329 1.353-3.648-.235-.374A9.818 9.818 0 0 1 12 2.182c5.426 0 9.818 4.392 9.818 9.818 0 5.427-4.392 9.818-9.818 9.818z"/></svg>
+        Enviar via WhatsApp
+      </button>
+      <button class="btn btn-secondary" onclick="salvarImagemIA()">Salvar imagem</button>
+    </div>
+    <button class="btn btn-secondary" style="margin-top:8px" onclick="novaFotoIA()">Nova foto</button>
+  </div>
+</div>
+
+<script>
+var imgRef = null;
+var pontoA = null;
+var pontoB = null;
+var fase = 'A';
+var ctx = null;
+var imgNaturalW = 0;
+var imgNaturalH = 0;
+var fotoIABase64 = null;
+var fotoIADataURL = null;
+var resultadoIA = null;
+
+function setTab(nome) {
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('ativo');});
+  document.querySelectorAll('.secao').forEach(function(s){s.classList.remove('ativo');});
+  var idx = ['ref','ia'].indexOf(nome);
+  document.querySelectorAll('.tab')[idx].classList.add('ativo');
+  document.getElementById('tab-'+nome).classList.add('ativo');
+}
+
+// ---- REFERENCIA ----
+function carregarFotoRef(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      imgRef = img;
+      imgNaturalW = img.naturalWidth;
+      imgNaturalH = img.naturalHeight;
+      document.getElementById('card-canvas').style.display = 'block';
+      resetPontos();
+      desenharCanvas();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function desenharCanvas() {
+  var canvas = document.getElementById('canvas-ref');
+  var wrap = canvas.parentElement;
+  var wrapW = wrap.clientWidth;
+  canvas.width = imgNaturalW;
+  canvas.height = imgNaturalH;
+  canvas.style.width = wrapW + 'px';
+  canvas.style.height = (imgNaturalH * (wrapW / imgNaturalW)) + 'px';
+  ctx = canvas.getContext('2d');
+  ctx.drawImage(imgRef, 0, 0);
+  if (pontoA) desenharPontoCanvas(ctx, pontoA.x, pontoA.y, 'A', '#c8f135');
+  if (pontoB) {
+    desenharPontoCanvas(ctx, pontoB.x, pontoB.y, 'B', '#ff9800');
+    if (pontoA) {
+      ctx.beginPath();
+      ctx.moveTo(pontoA.x, pontoA.y);
+      ctx.lineTo(pontoB.x, pontoB.y);
+      ctx.strokeStyle = '#c8f135';
+      ctx.lineWidth = Math.max(3, imgNaturalW * 0.004);
+      ctx.setLineDash([15, 8]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+function desenharPontoCanvas(c, x, y, label, cor) {
+  var r = Math.max(14, imgNaturalW * 0.02);
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI*2);
+  c.fillStyle = cor+'44';
+  c.fill();
+  c.beginPath();
+  c.arc(x, y, r*0.6, 0, Math.PI*2);
+  c.fillStyle = cor;
+  c.fill();
+  c.fillStyle = '#0d0d0f';
+  c.font = 'bold '+(r*0.8)+'px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText(label, x, y);
+}
+
+function getPosCanvas(clientX, clientY) {
+  var canvas = document.getElementById('canvas-ref');
+  var rect = canvas.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * (imgNaturalW / rect.width),
+    y: (clientY - rect.top) * (imgNaturalH / rect.height)
+  };
+}
+
+function marcarPonto(e) {
+  if (!imgRef) return;
+  registrarPonto(e.clientX, e.clientY);
+}
+
+function marcarPontoTouch(e) {
+  e.preventDefault();
+  if (!imgRef) return;
+  var t = e.changedTouches[0];
+  registrarPonto(t.clientX, t.clientY);
+}
+
+function registrarPonto(cx, cy) {
+  var pos = getPosCanvas(cx, cy);
+  if (fase === 'A') {
+    pontoA = pos; pontoB = null; fase = 'B';
+    document.getElementById('modo-txt').textContent = 'Agora toque no Ponto B';
+  } else {
+    pontoB = pos; fase = 'A';
+    document.getElementById('modo-txt').textContent = 'Pontos marcados! Informe a medida e calcule.';
+  }
+  desenharCanvas();
+}
+
+function resetPontos() {
+  pontoA = null; pontoB = null; fase = 'A';
+  document.getElementById('modo-txt').textContent = 'Toque para marcar o Ponto A';
+  document.getElementById('resultado-ref').style.display = 'none';
+  if (imgRef) desenharCanvas();
+}
+
+function calcularMedida() {
+  if (!pontoA || !pontoB) { alert('Marque os dois pontos na foto.'); return; }
+  var medida = parseFloat(document.getElementById('ref-medida').value);
+  if (!medida || medida <= 0) { alert('Informe a medida real.'); return; }
+  var unit = document.getElementById('ref-unit').value;
+  var modo = document.getElementById('ref-modo').value;
+  var objeto = document.getElementById('ref-objeto').value || 'Objeto';
+
+  var dx = pontoB.x - pontoA.x;
+  var dy = pontoB.y - pontoA.y;
+  var pixelsDist = Math.sqrt(dx*dx + dy*dy);
+  var escala = medida / pixelsDist;
+
+  var largura = Math.abs(dx) * escala;
+  var altura = Math.abs(dy) * escala;
+  var diag = Math.sqrt(largura*largura + altura*altura);
+
+  var html = '';
+  if (modo === 'retangulo') {
+    html += '<div class="res-item"><span class="res-key">Largura</span><span class="res-val">'+largura.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Altura</span><span class="res-val">'+altura.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Diagonal</span><span class="res-val">'+diag.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Area</span><span class="res-val">'+(largura*altura).toFixed(1)+' '+unit+'²</span></div>';
+  } else {
+    html += '<div class="res-item"><span class="res-key">Comprimento</span><span class="res-val">'+medida.toFixed(1)+' '+unit+'</span></div>';
+  }
+
+  document.getElementById('res-conteudo').innerHTML = html;
+  document.getElementById('resultado-ref').style.display = 'block';
+
+  // Gerar imagem técnica
+  gerarImagemTecnica('canvas-tecnico', imgRef, pontoA, pontoB, largura, altura, diag, medida, unit, modo, objeto);
+}
+
+function gerarImagemTecnica(canvasId, img, pA, pB, larg, alt, diag, medRef, unit, modo, objeto) {
+  var PAD = 160;
+  var W = img.naturalWidth + PAD * 2;
+  var H = img.naturalHeight + PAD * 2;
+
+  var c = document.getElementById(canvasId);
+  c.width = W;
+  c.height = H;
+  c.style.width = '100%';
+
+  var cx = c.getContext('2d');
+
+  // Fundo branco
+  cx.fillStyle = '#ffffff';
+  cx.fillRect(0, 0, W, H);
+
+  // Foto centralizada
+  cx.drawImage(img, PAD, PAD);
+
+  var ox = PAD;
+  var oy = PAD;
+  var iW = img.naturalWidth;
+  var iH = img.naturalHeight;
+
+  // Calcular bounding box dos pontos
+  var x1 = Math.min(pA.x, pB.x);
+  var x2 = Math.max(pA.x, pB.x);
+  var y1 = Math.min(pA.y, pB.y);
+  var y2 = Math.max(pA.y, pB.y);
+
+  var lw = Math.max(3, W * 0.003);
+  var fs = Math.max(28, W * 0.035);
+  var dash = [20, 10];
+
+  cx.strokeStyle = '#222222';
+  cx.lineWidth = lw;
+  cx.setLineDash(dash);
+
+  if (modo === 'retangulo') {
+    // Linhas de cota - LARGURA (embaixo)
+    var cotaY = oy + y2 + 60;
+    // linha horizontal cota
+    cx.beginPath();
+    cx.moveTo(ox + x1, cotaY);
+    cx.lineTo(ox + x2, cotaY);
+    cx.stroke();
+    // extensores verticais
+    cx.beginPath();
+    cx.moveTo(ox + x1, oy + y2);
+    cx.lineTo(ox + x1, cotaY + 10);
+    cx.stroke();
+    cx.beginPath();
+    cx.moveTo(ox + x2, oy + y2);
+    cx.lineTo(ox + x2, cotaY + 10);
+    cx.stroke();
+
+    // Linhas de cota - ALTURA (esquerda)
+    var cotaX = ox + x1 - 60;
+    cx.beginPath();
+    cx.moveTo(cotaX, oy + y1);
+    cx.lineTo(cotaX, oy + y2);
+    cx.stroke();
+    cx.beginPath();
+    cx.moveTo(ox + x1, oy + y1);
+    cx.lineTo(cotaX - 10, oy + y1);
+    cx.stroke();
+    cx.beginPath();
+    cx.moveTo(ox + x1, oy + y2);
+    cx.lineTo(cotaX - 10, oy + y2);
+    cx.stroke();
+
+    cx.setLineDash([]);
+
+    // Setas largura
+    desenharSeta(cx, ox+x1, cotaY, ox+x2, cotaY, lw);
+    // Setas altura
+    desenharSeta(cx, cotaX, oy+y1, cotaX, oy+y2, lw);
+
+    // Textos
+    cx.fillStyle = '#111111';
+    cx.font = 'bold '+fs+'px sans-serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'top';
+    cx.fillText(larg.toFixed(1)+' '+unit, ox+(x1+x2)/2, cotaY + 12);
+
+    cx.save();
+    cx.translate(cotaX - 12, oy+(y1+y2)/2);
+    cx.rotate(-Math.PI/2);
+    cx.textBaseline = 'bottom';
+    cx.fillText(alt.toFixed(1)+' '+unit, 0, 0);
+    cx.restore();
+
+  } else {
+    // Linha simples
+    cx.beginPath();
+    cx.moveTo(ox+pA.x, oy+pA.y);
+    cx.lineTo(ox+pB.x, oy+pB.y);
+    cx.stroke();
+    cx.setLineDash([]);
+    desenharSeta(cx, ox+pA.x, oy+pA.y, ox+pB.x, oy+pB.y, lw);
+    cx.fillStyle = '#111111';
+    cx.font = 'bold '+fs+'px sans-serif';
+    cx.textAlign = 'center';
+    cx.textBaseline = 'bottom';
+    cx.fillText(medRef.toFixed(1)+' '+unit, ox+(pA.x+pB.x)/2, oy+(pA.y+pB.y)/2 - 10);
+    cx.setLineDash([]);
+  }
+
+  // Título e rodapé
+  cx.fillStyle = '#111111';
+  cx.font = 'bold '+(fs*1.1)+'px sans-serif';
+  cx.textAlign = 'left';
+  cx.textBaseline = 'middle';
+  cx.fillText(objeto.toUpperCase(), PAD, PAD/2);
+
+  cx.font = (fs*0.75)+'px sans-serif';
+  cx.fillStyle = '#666';
+  cx.textAlign = 'right';
+  var hoje = new Date().toLocaleDateString('pt-BR');
+  cx.fillText('Medido em: '+hoje, W - PAD, PAD/2);
+
+  if (modo === 'retangulo') {
+    cx.font = (fs*0.8)+'px sans-serif';
+    cx.fillStyle = '#333';
+    cx.textAlign = 'left';
+    cx.textBaseline = 'top';
+    cx.fillText('L: '+larg.toFixed(1)+unit+'  A: '+alt.toFixed(1)+unit+'  Diag: '+diag.toFixed(1)+unit, PAD, H - PAD + 20);
+  }
+
+  // Marca dagua leve
+  cx.font = (fs*0.6)+'px sans-serif';
+  cx.fillStyle = '#cccccc';
+  cx.textAlign = 'right';
+  cx.textBaseline = 'bottom';
+  cx.fillText('App Medidor', W - 20, H - 10);
+}
+
+function desenharSeta(cx, x1, y1, x2, y2, lw) {
+  var angle = Math.atan2(y2-y1, x2-x1);
+  var hs = Math.max(16, lw*6);
+  cx.fillStyle = '#222222';
+  // seta inicio
+  cx.beginPath();
+  cx.moveTo(x1, y1);
+  cx.lineTo(x1+hs*Math.cos(angle+0.4), y1+hs*Math.sin(angle+0.4));
+  cx.lineTo(x1+hs*Math.cos(angle-0.4), y1+hs*Math.sin(angle-0.4));
+  cx.closePath();
+  cx.fill();
+  // seta fim
+  cx.beginPath();
+  cx.moveTo(x2, y2);
+  cx.lineTo(x2+hs*Math.cos(angle+Math.PI+0.4), y2+hs*Math.sin(angle+Math.PI+0.4));
+  cx.lineTo(x2+hs*Math.cos(angle+Math.PI-0.4), y2+hs*Math.sin(angle+Math.PI-0.4));
+  cx.closePath();
+  cx.fill();
+}
+
+function compartilharWpp() {
+  var c = document.getElementById('canvas-tecnico');
+  compartilharImagemWpp(c);
+}
+
+function compartilharImagemWpp(canvas) {
+  canvas.toBlob(function(blob) {
+    if (navigator.share && navigator.canShare && navigator.canShare({files:[new File([blob],'medida.jpg',{type:'image/jpeg'})]})) {
+      var file = new File([blob], 'medida.jpg', {type:'image/jpeg'});
+      navigator.share({files:[file], title:'Medição', text:'Medição gerada pelo app Medidor'})
+      .catch(function(){abrirWppTexto();});
+    } else {
+      // Fallback: baixa a imagem e abre whatsapp
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'medida.jpg';
+      a.click();
+      setTimeout(function(){
+        window.open('https://wa.me/?text=Medição+gerada+pelo+app+Medidor', '_blank');
+      }, 1000);
+    }
+  }, 'image/jpeg', 0.95);
+}
+
+function salvarImagem() {
+  var c = document.getElementById('canvas-tecnico');
+  var a = document.createElement('a');
+  a.href = c.toDataURL('image/jpeg', 0.95);
+  a.download = 'medida.jpg';
+  a.click();
+}
+
+// ---- IA ----
+function carregarFotoIA(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    fotoIADataURL = e.target.result;
+    fotoIABase64 = e.target.result.split(',')[1];
+    document.getElementById('preview-ia').src = e.target.result;
+    document.getElementById('preview-ia-wrap').style.display = 'block';
+    document.getElementById('card-ia-config').style.display = 'block';
+    document.getElementById('ia-resultado').style.display = 'none';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function analisarComIA() {
+  if (!fotoIABase64) { alert('Selecione uma foto.'); return; }
+  var tipo = document.getElementById('ia-tipo').value;
+  var refObj = document.getElementById('ia-ref').value;
+
+  var prompt = 'Analise esta foto e estime as medidas do objeto principal.\n\n';
+  if (tipo) prompt += 'Tipo: ' + tipo + '\n';
+  var refs = {a4:'Folha A4 (21x29,7cm) visível na foto.',moeda:'Moeda R$1 (27mm) visível.',garrafa:'Garrafa 600ml (~22cm) visível.',regua:'Régua com marcações visível.'};
+  if (refObj && refs[refObj]) prompt += refs[refObj] + '\n';
+  prompt += '\nResponda EXATAMENTE neste formato JSON (sem texto fora do JSON):\n{"objeto":"nome do objeto","largura":0,"altura":0,"comprimento":0,"unidade":"cm","precisao":"Alta/Media/Baixa","observacao":"motivo e dicas"}';
+
+  document.getElementById('card-ia-config').style.display = 'none';
+  document.getElementById('ia-loading').style.display = 'block';
+  document.getElementById('ia-resultado').style.display = 'none';
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-6',
+      max_tokens:500,
+      messages:[{role:'user',content:[
+        {type:'image',source:{type:'base64',media_type:'image/jpeg',data:fotoIABase64}},
+        {type:'text',text:prompt}
+      ]}]
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    document.getElementById('ia-loading').style.display = 'none';
+    var texto = data.content && data.content[0] ? data.content[0].text : '';
+    try {
+      var clean = texto.replace(/```json|```/g,'').trim();
+      var json = JSON.parse(clean);
+      resultadoIA = json;
+      var html = '';
+      if (json.objeto) html += '<div class="res-item"><span class="res-key">Objeto</span><span class="res-val">'+json.objeto+'</span></div>';
+      if (json.largura) html += '<div class="res-item"><span class="res-key">Largura</span><span class="res-val">'+json.largura+' '+json.unidade+'</span></div>';
+      if (json.altura) html += '<div class="res-item"><span class="res-key">Altura</span><span class="res-val">'+json.altura+' '+json.unidade+'</span></div>';
+      if (json.comprimento) html += '<div class="res-item"><span class="res-key">Comprimento</span><span class="res-val">'+json.comprimento+' '+json.unidade+'</span></div>';
+      if (json.precisao) html += '<div class="res-item"><span class="res-key">Precisão</span><span class="res-val">'+json.precisao+'</span></div>';
+      if (json.observacao) html += '<div class="res-item" style="flex-direction:column;align-items:flex-start;gap:4px"><span class="res-key">Observação</span><span style="font-size:.75rem;color:var(--text)">'+json.observacao+'</span></div>';
+      document.getElementById('ia-texto').innerHTML = html;
+      gerarImagemTecnicaIA(json);
+    } catch(e) {
+      document.getElementById('ia-texto').textContent = texto;
+      document.getElementById('ia-canvas-wrap').style.display = 'none';
+    }
+    document.getElementById('ia-resultado').style.display = 'block';
+  })
+  .catch(function(){
+    document.getElementById('ia-loading').style.display = 'none';
+    document.getElementById('ia-texto').textContent = 'Erro de conexão.';
+    document.getElementById('ia-resultado').style.display = 'block';
+  });
+}
+
+function gerarImagemTecnicaIA(json) {
+  var img = new Image();
+  img.onload = function() {
+    var PAD = 160;
+    var W = img.naturalWidth + PAD*2;
+    var H = img.naturalHeight + PAD*2;
+    var c = document.getElementById('canvas-ia-tecnico');
+    c.width = W; c.height = H;
+    var cx = c.getContext('2d');
+    cx.fillStyle = '#ffffff';
+    cx.fillRect(0, 0, W, H);
+    cx.drawImage(img, PAD, PAD);
+    var fs = Math.max(28, W*0.035);
+    var lw = Math.max(3, W*0.003);
+    var iW = img.naturalWidth;
+    var iH = img.naturalHeight;
+
+    cx.strokeStyle = '#222';
+    cx.lineWidth = lw;
+    cx.setLineDash([20,10]);
+
+    // Largura embaixo
+    if (json.largura) {
+      var cotaY = PAD + iH + 60;
+      cx.beginPath(); cx.moveTo(PAD, cotaY); cx.lineTo(PAD+iW, cotaY); cx.stroke();
+      cx.beginPath(); cx.moveTo(PAD, PAD+iH); cx.lineTo(PAD, cotaY+10); cx.stroke();
+      cx.beginPath(); cx.moveTo(PAD+iW, PAD+iH); cx.lineTo(PAD+iW, cotaY+10); cx.stroke();
+      cx.setLineDash([]);
+      desenharSeta(cx, PAD, cotaY, PAD+iW, cotaY, lw);
+      cx.fillStyle='#111'; cx.font='bold '+fs+'px sans-serif'; cx.textAlign='center'; cx.textBaseline='top';
+      cx.fillText(json.largura+' '+json.unidade, PAD+iW/2, cotaY+12);
+      cx.setLineDash([20,10]);
+    }
+    // Altura esquerda
+    if (json.altura) {
+      var cotaX = PAD - 60;
+      cx.beginPath(); cx.moveTo(cotaX, PAD); cx.lineTo(cotaX, PAD+iH); cx.stroke();
+      cx.beginPath(); cx.moveTo(PAD, PAD); cx.lineTo(cotaX-10, PAD); cx.stroke();
+      cx.beginPath(); cx.moveTo(PAD, PAD+iH); cx.lineTo(cotaX-10, PAD+iH); cx.stroke();
+      cx.setLineDash([]);
+      desenharSeta(cx, cotaX, PAD, cotaX, PAD+iH, lw);
+      cx.save(); cx.translate(cotaX-12, PAD+iH/2); cx.rotate(-Math.PI/2);
+      cx.fillStyle='#111'; cx.font='bold '+fs+'px sans-serif'; cx.textAlign='center'; cx.textBaseline='bottom';
+      cx.fillText(json.altura+' '+json.unidade, 0, 0);
+      cx.restore();
+    }
+
+    // Titulo
+    cx.fillStyle='#111'; cx.font='bold '+(fs*1.1)+'px sans-serif'; cx.textAlign='left'; cx.textBaseline='middle';
+    cx.fillText((json.objeto||'Objeto').toUpperCase(), PAD, PAD/2);
+    cx.font=(fs*0.75)+'px sans-serif'; cx.fillStyle='#666'; cx.textAlign='right';
+    cx.fillText('Medido em: '+new Date().toLocaleDateString('pt-BR'), W-PAD, PAD/2);
+    cx.font=(fs*0.6)+'px sans-serif'; cx.fillStyle='#ccc'; cx.textBaseline='bottom';
+    cx.fillText('App Medidor (IA)', W-20, H-10);
+
+    document.getElementById('ia-canvas-wrap').style.display = 'block';
+  };
+  img.src = fotoIADataURL;
+}
+
+function compartilharWppIA() {
+  var c = document.getElementById('canvas-ia-tecnico');
+  compartilharImagemWpp(c);
+}
+
+function salvarImagemIA() {
+  var c = document.getElementById('canvas-ia-tecnico');
+  var a = document.createElement('a');
+  a.href = c.toDataURL('image/jpeg', 0.95);
+  a.download = 'medida-ia.jpg';
+  a.click();
+}
+
+function novaFotoIA() {
+  fotoIABase64 = null; fotoIADataURL = null;
+  document.getElementById('foto-ia').value = '';
+  document.getElementById('preview-ia-wrap').style.display = 'none';
+  document.getElementById('card-ia-config').style.display = 'none';
+  document.getElementById('ia-resultado').style.display = 'none';
+}
+</script>
+</body>
+</html>
 

@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Medidor</title>
+<style>
+:root{--bg:#0d0d0f;--surface:#16161a;--border:#2a2a32;--accent:#c8f135;--text:#f0f0f0;--muted:#666;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Mono',monospace,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px;max-width:480px;margin:0 auto}
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+h1{font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;margin-bottom:4px}
+h1 span{color:var(--accent)}
+.sub{font-size:.7rem;color:var(--muted);margin-bottom:18px}
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.tab{flex:1;padding:9px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);font-size:.7rem;color:var(--muted);cursor:pointer;text-align:center;text-transform:uppercase;letter-spacing:.5px}
+.tab.ativo{border-color:var(--accent);color:var(--accent)}
+.secao{display:none}.secao.ativo{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.clabel{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:10px}
+/* CANVAS AREA */
+.canvas-wrap{position:relative;width:100%;border-radius:var(--r);overflow:hidden;background:#000;margin-bottom:12px;touch-action:none}
+canvas{display:block;width:100%;height:auto}
+.canvas-msg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--muted);font-size:.75rem;text-align:center;pointer-events:none;padding:16px}
+/* PONTOS */
+.ponto-label{position:absolute;font-size:.65rem;color:var(--accent);font-weight:700;background:#0d0d0fcc;padding:2px 5px;border-radius:4px;pointer-events:none}
+/* INPUTS */
+input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:inherit;font-size:.85rem;padding:10px 12px;outline:none;width:100%}
+input:focus,select:focus{border-color:var(--accent)}
+.frow{display:flex;gap:8px;margin-bottom:10px;align-items:center}
+.frow label{font-size:.7rem;color:var(--muted);white-space:nowrap;min-width:90px}
+.btn{width:100%;padding:13px;border:none;border-radius:var(--r);font-family:'Syne',sans-serif;font-size:.9rem;font-weight:800;cursor:pointer;margin-bottom:8px}
+.btn-primary{background:var(--accent);color:#0d0d0f}
+.btn-secondary{background:var(--surface);color:var(--text);border:1px solid var(--border)}
+.btn-cam{background:#1a1a22;border:2px dashed var(--border);color:var(--muted);border-radius:var(--r);width:100%;padding:20px;font-size:.8rem;cursor:pointer;margin-bottom:10px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.btn-cam svg{opacity:.5}
+/* RESULTADO */
+.resultado{background:#0d1f0d;border:1px solid #2d6e2d;border-radius:var(--r);padding:14px;margin-top:12px}
+.res-titulo{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:#4caf50;margin-bottom:10px}
+.res-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #1a3a1a}
+.res-item:last-child{border-bottom:none}
+.res-key{font-size:.75rem;color:var(--muted)}
+.res-val{font-size:.9rem;color:var(--accent);font-weight:700}
+/* IA */
+.ia-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-top:12px;font-size:.8rem;line-height:1.6;color:var(--text);white-space:pre-wrap}
+.loading{text-align:center;padding:20px;color:var(--muted);font-size:.8rem}
+.dot-anim::after{content:'...';animation:dots 1.2s infinite}
+@keyframes dots{0%{content:'.'}33%{content:'..'}66%{content:'...'}}
+.instrucao{background:#1a1a00;border:1px solid #444400;border-radius:8px;padding:10px 12px;font-size:.7rem;color:#aaa;margin-bottom:10px;line-height:1.5}
+.instrucao strong{color:var(--accent)}
+.instrucao ol{margin-left:14px;margin-top:4px}
+.badge{display:inline-block;background:#c8f13522;color:var(--accent);border:1px solid #c8f13544;border-radius:4px;font-size:.55rem;padding:2px 6px;margin-left:6px;vertical-align:middle}
+.modo-ativo{font-size:.65rem;color:var(--accent);text-align:center;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<h1>&#128207; <span>MEDIDOR</span></h1>
+<p class="sub">Meça objetos por foto com referência ou IA</p>
+
+<div class="tabs">
+  <div class="tab ativo" onclick="setTab('ref')">Referência <span class="badge">Preciso</span></div>
+  <div class="tab" onclick="setTab('ia')">IA <span class="badge">Fácil</span></div>
+</div>
+
+<!-- ABA REFERENCIA -->
+<div class="secao ativo" id="tab-ref">
+  <div class="card">
+    <div class="clabel">1. Foto do objeto</div>
+    <label class="btn-cam" for="foto-ref">
+      <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Toque para tirar foto ou escolher da galeria
+    </label>
+    <input type="file" id="foto-ref" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoRef(this)">
+  </div>
+
+  <div class="card" id="card-canvas" style="display:none">
+    <div class="clabel">2. Marque os pontos na foto</div>
+    <div class="instrucao">
+      <strong>Como usar:</strong>
+      <ol>
+        <li>Toque no <strong>ponto inicial</strong> do objeto (ex: borda esquerda)</li>
+        <li>Toque no <strong>ponto final</strong> (ex: borda direita)</li>
+        <li>Informe a medida real abaixo e calcule</li>
+      </ol>
+    </div>
+    <div class="modo-ativo" id="modo-txt">Toque para marcar o Ponto A</div>
+    <div class="canvas-wrap" id="canvas-wrap">
+      <canvas id="canvas-ref" onclick="marcarPonto(event)" ontouchend="marcarPontoTouch(event)"></canvas>
+    </div>
+    <button class="btn btn-secondary" onclick="resetPontos()" style="margin-bottom:12px">Limpar pontos</button>
+
+    <div class="clabel">3. Medida de referência</div>
+    <div class="frow">
+      <label>Distância real:</label>
+      <input type="number" id="ref-medida" placeholder="Ex: 29.7" step="0.1" min="0.1">
+      <select id="ref-unit" style="max-width:80px">
+        <option value="cm">cm</option>
+        <option value="m">m</option>
+        <option value="mm">mm</option>
+        <option value="in">pol</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>O que medir:</label>
+      <select id="ref-modo">
+        <option value="linha">Comprimento da linha</option>
+        <option value="retangulo">Largura e Altura</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="calcularMedida()">CALCULAR MEDIDA</button>
+
+    <div id="resultado-ref" style="display:none" class="resultado">
+      <div class="res-titulo">Resultado</div>
+      <div id="res-conteudo"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ABA IA -->
+<div class="secao" id="tab-ia">
+  <div class="card">
+    <div class="clabel">Foto do objeto</div>
+    <label class="btn-cam" for="foto-ia">
+      <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      Tirar foto ou escolher da galeria
+    </label>
+    <input type="file" id="foto-ia" accept="image/*" capture="environment" style="display:none" onchange="carregarFotoIA(this)">
+    <div id="preview-ia-wrap" style="display:none;margin-bottom:10px">
+      <img id="preview-ia" style="width:100%;border-radius:var(--r);border:1px solid var(--border)">
+    </div>
+  </div>
+
+  <div class="card" id="card-ia-config" style="display:none">
+    <div class="clabel">Contexto (opcional)</div>
+    <div class="frow" style="margin-bottom:8px">
+      <label>Tipo de objeto:</label>
+      <select id="ia-tipo">
+        <option value="">Detectar automaticamente</option>
+        <option value="quadro">Quadro / Moldura</option>
+        <option value="movel">Móvel</option>
+        <option value="porta">Porta / Janela</option>
+        <option value="eletrodomestico">Eletrodoméstico</option>
+        <option value="veiculo">Veículo</option>
+        <option value="pessoa">Pessoa</option>
+        <option value="outro">Outro</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>Referência:</label>
+      <select id="ia-ref">
+        <option value="">Sem referência</option>
+        <option value="a4">Folha A4 na foto</option>
+        <option value="moeda">Moeda R$1 na foto</option>
+        <option value="garrafa">Garrafa 600ml na foto</option>
+        <option value="celular">Celular na foto</option>
+        <option value="regua">Régua na foto</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" onclick="analisarComIA()">ANALISAR COM IA</button>
+  </div>
+
+  <div id="ia-loading" style="display:none" class="loading">
+    <div class="dot-anim">Analisando foto</div>
+    <div style="font-size:.65rem;color:var(--muted);margin-top:8px">A IA está examinando o objeto...</div>
+  </div>
+
+  <div id="ia-resultado" style="display:none">
+    <div class="resultado">
+      <div class="res-titulo">Analise da IA</div>
+      <div id="ia-texto" class="ia-result"></div>
+    </div>
+    <button class="btn btn-secondary" style="margin-top:10px" onclick="novaFotoIA()">Nova foto</button>
+  </div>
+</div>
+
+<script>
+var imgRef = null;
+var pontoA = null;
+var pontoB = null;
+var fase = 'A';
+var ctx = null;
+var imgNaturalW = 0;
+var imgNaturalH = 0;
+var fotoIABase64 = null;
+
+function setTab(nome) {
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('ativo');});
+  document.querySelectorAll('.secao').forEach(function(s){s.classList.remove('ativo');});
+  var idx = ['ref','ia'].indexOf(nome);
+  document.querySelectorAll('.tab')[idx].classList.add('ativo');
+  document.getElementById('tab-'+nome).classList.add('ativo');
+}
+
+// ---- REFERENCIA ----
+function carregarFotoRef(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    var img = new Image();
+    img.onload = function() {
+      imgRef = img;
+      imgNaturalW = img.naturalWidth;
+      imgNaturalH = img.naturalHeight;
+      document.getElementById('card-canvas').style.display = 'block';
+      resetPontos();
+      desenharCanvas();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function desenharCanvas() {
+  var canvas = document.getElementById('canvas-ref');
+  var wrap = document.getElementById('canvas-wrap');
+  var wrapW = wrap.clientWidth;
+  var escala = wrapW / imgNaturalW;
+  canvas.width = imgNaturalW;
+  canvas.height = imgNaturalH;
+  canvas.style.width = wrapW + 'px';
+  canvas.style.height = (imgNaturalH * escala) + 'px';
+  ctx = canvas.getContext('2d');
+  ctx.drawImage(imgRef, 0, 0);
+
+  if (pontoA) {
+    desenharPonto(pontoA.x, pontoA.y, 'A', '#c8f135');
+  }
+  if (pontoB) {
+    desenharPonto(pontoB.x, pontoB.y, 'B', '#ff9800');
+    if (pontoA) {
+      ctx.beginPath();
+      ctx.moveTo(pontoA.x, pontoA.y);
+      ctx.lineTo(pontoB.x, pontoB.y);
+      ctx.strokeStyle = '#c8f135';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([10, 5]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+}
+
+function desenharPonto(x, y, label, cor) {
+  ctx.beginPath();
+  ctx.arc(x, y, 14, 0, Math.PI * 2);
+  ctx.fillStyle = cor + '44';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x, y, 8, 0, Math.PI * 2);
+  ctx.fillStyle = cor;
+  ctx.fill();
+  ctx.fillStyle = '#0d0d0f';
+  ctx.font = 'bold 10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x, y);
+}
+
+function getPosCanvas(e) {
+  var canvas = document.getElementById('canvas-ref');
+  var rect = canvas.getBoundingClientRect();
+  var escalaX = imgNaturalW / rect.width;
+  var escalaY = imgNaturalH / rect.height;
+  var clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
+  var clientY = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
+  return {
+    x: (clientX - rect.left) * escalaX,
+    y: (clientY - rect.top) * escalaY
+  };
+}
+
+function marcarPonto(e) {
+  if (!imgRef) return;
+  var pos = getPosCanvas(e);
+  if (fase === 'A') {
+    pontoA = pos;
+    pontoB = null;
+    fase = 'B';
+    document.getElementById('modo-txt').textContent = 'Agora toque no Ponto B (ponto final)';
+  } else {
+    pontoB = pos;
+    fase = 'A';
+    document.getElementById('modo-txt').textContent = 'Pontos marcados! Informe a medida e calcule.';
+  }
+  desenharCanvas();
+}
+
+function marcarPontoTouch(e) {
+  e.preventDefault();
+  if (!imgRef) return;
+  var pos = getPosCanvas(e.changedTouches[0]);
+  if (fase === 'A') {
+    pontoA = pos;
+    pontoB = null;
+    fase = 'B';
+    document.getElementById('modo-txt').textContent = 'Agora toque no Ponto B (ponto final)';
+  } else {
+    pontoB = pos;
+    fase = 'A';
+    document.getElementById('modo-txt').textContent = 'Pontos marcados! Informe a medida e calcule.';
+  }
+  desenharCanvas();
+}
+
+function resetPontos() {
+  pontoA = null;
+  pontoB = null;
+  fase = 'A';
+  document.getElementById('modo-txt').textContent = 'Toque para marcar o Ponto A';
+  document.getElementById('resultado-ref').style.display = 'none';
+  if (imgRef) desenharCanvas();
+}
+
+function calcularMedida() {
+  if (!pontoA || !pontoB) { alert('Marque os dois pontos na foto primeiro.'); return; }
+  var medida = parseFloat(document.getElementById('ref-medida').value);
+  if (!medida || medida <= 0) { alert('Informe a medida real.'); return; }
+  var unit = document.getElementById('ref-unit').value;
+  var modo = document.getElementById('ref-modo').value;
+
+  var dx = pontoB.x - pontoA.x;
+  var dy = pontoB.y - pontoA.y;
+  var pixelsDist = Math.sqrt(dx*dx + dy*dy);
+  var escala = medida / pixelsDist; // unidade real por pixel
+
+  var html = '';
+  if (modo === 'linha') {
+    html += '<div class="res-item"><span class="res-key">Comprimento medido</span><span class="res-val">'+medida.toFixed(1)+' '+unit+'</span></div>';
+    var angulo = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI);
+    if (angulo > 90) angulo = 180 - angulo;
+    html += '<div class="res-item"><span class="res-key">Angulo</span><span class="res-val">'+angulo.toFixed(1)+'°</span></div>';
+    html += '<div class="res-item"><span class="res-key">Escala</span><span class="res-val">1px = '+escala.toFixed(4)+' '+unit+'</span></div>';
+  } else {
+    var largura = Math.abs(dx) * escala;
+    var altura = Math.abs(dy) * escala;
+    var diag = Math.sqrt(largura*largura + altura*altura);
+    html += '<div class="res-item"><span class="res-key">Largura</span><span class="res-val">'+largura.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Altura</span><span class="res-val">'+altura.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Diagonal</span><span class="res-val">'+diag.toFixed(1)+' '+unit+'</span></div>';
+    html += '<div class="res-item"><span class="res-key">Area</span><span class="res-val">'+(largura*altura).toFixed(1)+' '+unit+'²</span></div>';
+  }
+
+  document.getElementById('res-conteudo').innerHTML = html;
+  document.getElementById('resultado-ref').style.display = 'block';
+}
+
+// ---- IA ----
+function carregarFotoIA(input) {
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    fotoIABase64 = e.target.result.split(',')[1];
+    document.getElementById('preview-ia').src = e.target.result;
+    document.getElementById('preview-ia-wrap').style.display = 'block';
+    document.getElementById('card-ia-config').style.display = 'block';
+    document.getElementById('ia-resultado').style.display = 'none';
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+function analisarComIA() {
+  if (!fotoIABase64) { alert('Selecione uma foto primeiro.'); return; }
+  var tipo = document.getElementById('ia-tipo').value;
+  var refObjeto = document.getElementById('ia-ref').value;
+
+  var prompt = 'Analise esta foto e estime as medidas do objeto principal.\n\n';
+  if (tipo) prompt += 'Tipo de objeto: ' + tipo + '\n';
+  if (refObjeto) {
+    var refs = {
+      a4: 'Há uma folha A4 (21 x 29,7 cm) na foto como referência de escala.',
+      moeda: 'Há uma moeda de R$1 (diâmetro 27mm) na foto como referência.',
+      garrafa: 'Há uma garrafa de 600ml (altura ~22cm) na foto como referência.',
+      celular: 'Há um celular smartphone (aprox 15cm de altura) na foto como referência.',
+      regua: 'Há uma régua visível na foto com marcações.'
+    };
+    prompt += refs[refObjeto] + '\n';
+  }
+  prompt += '\nResponda em português com:\n';
+  prompt += '📐 OBJETO IDENTIFICADO: [nome]\n';
+  prompt += '📏 MEDIDAS ESTIMADAS:\n';
+  prompt += '  - Largura: X cm\n';
+  prompt += '  - Altura: X cm\n';
+  prompt += '  - Profundidade: X cm (se visível)\n';
+  prompt += '  - Diagonal: X cm (se aplicável)\n';
+  prompt += '⚠️ PRECISÃO: [Alta/Média/Baixa] - [motivo]\n';
+  prompt += '💡 DICA: [como melhorar a medição se necessário]\n\n';
+  prompt += 'Se não houver referência de escala, baseie-se no contexto visual (tamanho típico do objeto, outros elementos na foto).';
+
+  document.getElementById('card-ia-config').style.display = 'none';
+  document.getElementById('ia-loading').style.display = 'block';
+  document.getElementById('ia-resultado').style.display = 'none';
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          {type: 'image', source: {type: 'base64', media_type: 'image/jpeg', data: fotoIABase64}},
+          {type: 'text', text: prompt}
+        ]
+      }]
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    document.getElementById('ia-loading').style.display = 'none';
+    var texto = data.content && data.content[0] ? data.content[0].text : 'Erro ao analisar.';
+    document.getElementById('ia-texto').textContent = texto;
+    document.getElementById('ia-resultado').style.display = 'block';
+  })
+  .catch(function(err){
+    document.getElementById('ia-loading').style.display = 'none';
+    document.getElementById('ia-texto').textContent = 'Erro de conexão. Tente novamente.';
+    document.getElementById('ia-resultado').style.display = 'block';
+  });
+}
+
+function novaFotoIA() {
+  fotoIABase64 = null;
+  document.getElementById('foto-ia').value = '';
+  document.getElementById('preview-ia-wrap').style.display = 'none';
+  document.getElementById('card-ia-config').style.display = 'none';
+  document.getElementById('ia-resultado').style.display = 'none';
+}
+</script>
+</body>
+</html>
